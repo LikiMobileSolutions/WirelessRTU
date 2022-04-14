@@ -1,9 +1,20 @@
+/**
+ * @file LoRaP2P_RX.ino
+ * @author rakwireless.com
+ * @brief Receiver node for LoRa point to point communication
+ * @version 0.1
+ * @date 2020-08-21
+ *
+ * @copyright Copyright (c) 2020
+ *
+ */
 #include <Arduino.h>
 #include "LoRaWan-Arduino.h" //http://librarymanager/All#SX126x
+#include <ArduinoRS485.h>
 #include <SPI.h>
-#include <stdarg.h>
+
 #include <stdio.h>
-#include <ArduinoRS485.h> // Biblio do RS-a jako sender
+
 #include "mbed.h"
 #include "rtos.h"
 
@@ -14,12 +25,6 @@ using namespace std::chrono;
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr);
 void OnRxTimeout(void);
 void OnRxError(void);
-
-// Definicje do RS-a
-#define RS485_TX_PIN 0
-#define RS485_DE_PIN 6
-#define RS485_RE_PIN 1
-
 
 // Define LoRa parameters
 #define RF_FREQUENCY 868300000  // Hz
@@ -33,15 +38,18 @@ void OnRxError(void);
 #define LORA_IQ_INVERSION_ON false
 #define RX_TIMEOUT_VALUE 3000
 #define TX_TIMEOUT_VALUE 3000
-static uint8_t adress[1];
-static uint8_t received_adress[1];
+
+#define RS485_TX_PIN 0
+#define RS485_DE_PIN 6
+#define RS485_RE_PIN 1
+
 static RadioEvents_t RadioEvents;
+
 static uint8_t RcvBuffer[64];
-int idx = 0;
+boolean odebrane = false;
 
 void setup()
 {
-  adress[0] = '9';
   // Initialize Serial for debug output
   time_t timeout = millis();
   Serial.begin(115200);
@@ -56,6 +64,20 @@ void setup()
       break;
     }
   }
+
+  RS485.setPins(RS485_TX_PIN, RS485_DE_PIN, RS485_RE_PIN);
+  RS485.begin(9600);
+
+  /* IO2 HIGH  3V3_S ON */
+	pinMode(WB_IO2, OUTPUT);
+	digitalWrite(WB_IO2, HIGH);
+	delay(500);
+	/* IO2 HIGH  3V3_S ON */
+
+  RS485.receive();
+  Serial.println("RAK5802 RS485 test");
+
+
   // Initialize LoRa chip.
   lora_rak11300_init();
   Serial.println("=====================================");
@@ -75,16 +97,6 @@ void setup()
 
   // Set Radio channel
   Radio.SetChannel(RF_FREQUENCY);
-  // Set Radio TX configuration
-  Radio.SetTxConfig(MODEM_LORA, TX_OUTPUT_POWER, 0, LORA_BANDWIDTH,
-                    LORA_SPREADING_FACTOR, LORA_CODINGRATE,
-                    LORA_PREAMBLE_LENGTH, LORA_FIX_LENGTH_PAYLOAD_ON,
-                    true, 0, 0, LORA_IQ_INVERSION_ON, TX_TIMEOUT_VALUE);
-
-  for (int i = 0; i <= 5; i++)
-  {
-    Radio.Send(adress, 1);
-  }
 
   // Set Radio RX configuration
   Radio.SetRxConfig(MODEM_LORA, LORA_BANDWIDTH, LORA_SPREADING_FACTOR,
@@ -95,71 +107,45 @@ void setup()
   // Start LoRa
   Serial.println("Starting Radio.Rx");
   Radio.Rx(RX_TIMEOUT_VALUE);
-  // radio.Read(received_adress[0]);
-
-  // Konf do RS-a
-  RS485.setPins(RS485_TX_PIN, RS485_DE_PIN, RS485_RE_PIN);
-	RS485.begin(9600);
-
 }
 
 void loop()
 {
   // Put your application tasks here, like reading of sensors,
   // Controlling actuators and/or other functions.
-
-  // Obsługa RS-a jako nadajnik
-  RS485.beginTransmission();
-	
-	/* IO2 HIGH  3V3_S ON */
-	pinMode(WB_IO2, OUTPUT);
-	digitalWrite(WB_IO2, HIGH);
-	delay(300);
-	/* IO2 HIGH  3V3_S ON */
-
-	RS485.write("hello world\n");
-	RS485.endTransmission();
-	
-	/* IO2 LOW  3V3_S OFF */
-	pinMode(WB_IO2, OUTPUT);
-	digitalWrite(WB_IO2, LOW);
-	delay(300);
-	/* IO2 LOW  3V3_S OFF */
-  Serial.println("uart is ok");
-	delay(1000);
-  
- }
+  if (RS485.available())
+	{
+		Serial.write(RS485.read());
+    //Serial.println(RS485.read());
+	}
+}
 
 /**@brief Function to be executed on Radio Rx Done event
  */
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
 {
-
-  Serial.println("OnRxDone");
+  //Serial.println("OnRxDone");
   delay(10);
-  memcpy(RcvBuffer, payload, size); // copy do destination (destinatio,source,size)
+  memcpy(RcvBuffer, payload, size);
+  char msg[50];
 
-  // Serial.printf("RssiValue=%d dBm, SnrValue=%d\n", rssi, snr);
-  String str = (char *)RcvBuffer;
-  Serial.println("porownanie");
-  Serial.println(RcvBuffer[3] - 48);
-  Serial.println(adress[0] - 48);
-  if ((RcvBuffer[4] - 48) == (adress[0] - 48))
+  int idx = 0;
+  for (idx = 0; idx < size; idx++)
   {
-    for (int idx = 0; idx < size; idx++)
-    {
-
-      Serial.println(RcvBuffer[idx] - 48);
-    }
-
+    // Serial.printf("%c ", RcvBuffer[idx]);
+    msg[idx] = RcvBuffer[idx];
+  }
+  msg[idx] = ' ';
+  if(msg[0] == '4')
+  {
+    Serial.printf("RssiValue=%d dBm, SnrValue=%d\n", rssi, snr);
+    Serial.print(msg);
+    Serial.print(" OK");
     Serial.println("");
-    idx = 0;
-    Radio.Rx(RX_TIMEOUT_VALUE);
   }
-  else
-  {
-    Serial.println("wrong node adress");
-  }
+  
+  odebrane = true;
+  Radio.Rx(RX_TIMEOUT_VALUE);
 }
 
 /**@brief Function to be executed on Radio Rx Timeout event
