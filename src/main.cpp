@@ -3,7 +3,7 @@
 #include <SPI.h>
 #include <stdarg.h>
 #include <stdio.h>
-
+#include <time.h>
 #include <ArduinoRS485.h> // Biblioteka RS
 
 #include "mbed.h"
@@ -37,12 +37,15 @@ void send(void);
 static uint8_t adress[1];
 static RadioEvents_t RadioEvents;
 static uint8_t TxdBuffer[64];
+static uint8_t Txwiadomosc[64];
 //uint8_t *wiadomosc = (uint8_t *)malloc(sizeof(uint8_t));
 char wiadomosc[0];
-char wiadomoscbuffer[64];
 static uint16_t received_adress[1];
 int sizemessage = 0;
-int i =0;
+long long int czas = 0;
+long long int czast = 0;
+int n =1;
+
 void setup()
 {
 	adress[0] = '9';
@@ -118,7 +121,7 @@ void setup()
 void send()
 {
 
-	sizemessage = 0;
+	//sizemessage = 0;
 
 	//sizemessage = sizeof(wiadomosc);
 
@@ -135,52 +138,96 @@ void send()
 	TxdBuffer[4] = adress[0];
 	Radio.Send(TxdBuffer, 5);
 	*/
+	Radio.Send(TxdBuffer, sizemessage);
 	
 	//Radio.Send((uint8_t *)wiadomosc, 64);
 }
+
 void loop()
 {
-	char pomocnicza[10];
+	
 	//send();
 	sizemessage = sizeof(wiadomosc);
 	// Obsługa RS-a
 	if (RS485.available())
 	{
-		for (int cnt = 0; cnt <= sizemessage; cnt++)
-		{
-			wiadomosc[cnt] = RS485.read();
-			pomocnicza[i] = wiadomosc[cnt];
-			i++;
-		}
-		
-		Serial.println(" ");
-		//memcpy(wiadomosc, RS485.read(), sizeof(RS485.read()));
-		//Serial.write(RS485.read());
-		//Serial.println(RS485.read());
-		//send(Serial.println(RS485.read()));
-		//Serial.print(wiadomosc);
-		
-		//Serial.println("");
-	
 
-		//sizemessage = sizeof(RS485.read());
-		//sizemessage =sizeof(RS485.read()) / sizeof(char);
-		//Serial.print("dlugosc tablicy:  ");
-		//Serial.println(sizemessage);
+		czas = millis();
+		//Serial.print(czas);
+
+
+
+		TxdBuffer[0] = adress[0];
+			switch(RS485.read())
+			{
+				case '1':
+					Serial.print("1");
+					TxdBuffer[n] = '1';
+
+					break;
+				
+				case '2':
+					Serial.print("2");
+					TxdBuffer[n] = '2';
+					break;
+				
+				case '3':
+					Serial.print("3");
+					TxdBuffer[n] = '3';
+					break;
+				
+				case '4':
+					Serial.print("4");
+					TxdBuffer[n] = '4';
+					break;
+				
+				case '5':
+					Serial.print("5");
+					TxdBuffer[n] = '5';
+					break;
+				
+				case '6':
+					Serial.print("6");
+					TxdBuffer[n] = '6';
+					break;
+				
+				case '7':
+					Serial.print("7");
+					TxdBuffer[n] = '7';
+					break;
+				
+				case '8':
+					Serial.print("8");
+					TxdBuffer[n] = '8';
+					break;
+				
+				case '9':
+					Serial.print("9");
+					TxdBuffer[n] = '9';
+					break;
+				
+				
+
+			}
+			
+			
+		n++;
 		
-		
-		
-		Serial.print(pomocnicza);
-		
-		if (i == 3)
-		{i=0;}
+	
+	}
+	else
+	{
+		czast = millis();
+		if ((czas+2 < czast) && (czast< czas +4))
+		{
+			Serial.println(" ");
+			sizemessage = n-1;
+			n=1;
+			send();
+
+		}
 	}
 
-	
-	
-	//Serial.print("dlugosc");
-	//Serial.println(sizemessage);
-	//Serial.println(wiadomosc);
 }
 
 /**@brief Function to be executed on Radio Tx Done event
@@ -188,10 +235,7 @@ void loop()
 void OnTxDone(void)
 {
 	Serial.println("OnTxDone");
-	Serial.println("czwartaliczba");
-	Serial.println(TxdBuffer[4]);
-	delay(5000);
-	send();
+	
 }
 
 /**@brief Function to be executed on Radio Tx Timeout event
