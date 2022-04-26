@@ -14,7 +14,7 @@ using namespace std::chrono;
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr);
 void OnRxTimeout(void);
 void OnRxError(void);
-
+void RS(void);
 // Definicje do RS-a
 #define RS485_TX_PIN 0
 #define RS485_DE_PIN 6
@@ -34,11 +34,12 @@ void OnRxError(void);
 #define RX_TIMEOUT_VALUE 3000
 #define TX_TIMEOUT_VALUE 3000
 static uint8_t adress[1];
-static uint8_t received_adress[1];
+//static uint8_t received_adress[1];
 static RadioEvents_t RadioEvents;
 static uint8_t RcvBuffer[64];
+static uint8_t RxBuffer[64];
 int idx = 0;
-
+static uint16_t size_1;
 void setup()
 {
   adress[0] = '9';
@@ -98,68 +99,65 @@ void setup()
   // radio.Read(received_adress[0]);
 
   // Konf do RS-a
-  RS485.setPins(RS485_TX_PIN, RS485_DE_PIN, RS485_RE_PIN);
+// Część do obsługi RS-a
+	RS485.setPins(RS485_TX_PIN, RS485_DE_PIN, RS485_RE_PIN);
 	RS485.begin(9600);
 
-}
 
+}
 void loop()
 {
-  // Put your application tasks here, like reading of sensors,
-  // Controlling actuators and/or other functions.
 
-  // Obsługa RS-a jako nadajnik
-  RS485.beginTransmission();
-	
-	/* IO2 HIGH  3V3_S ON */
-	pinMode(WB_IO2, OUTPUT);
-	digitalWrite(WB_IO2, HIGH);
-	delay(300);
-	/* IO2 HIGH  3V3_S ON */
-
-	RS485.write("hello world\n");
-	RS485.endTransmission();
-	
-	/* IO2 LOW  3V3_S OFF */
-	pinMode(WB_IO2, OUTPUT);
-	digitalWrite(WB_IO2, LOW);
-	delay(300);
-	/* IO2 LOW  3V3_S OFF */
-  Serial.println("uart is ok");
-	delay(1000);
+//  for (int cnt=0; cnt<=64; cnt++)
+//{  	RS485.print(RxBuffer[cnt]);
+//}
   
  }
 
-/**@brief Function to be executed on Radio Rx Done event
- */
 void OnRxDone(uint8_t *payload, uint16_t size, int16_t rssi, int8_t snr)
 {
 
-  Serial.println("OnRxDone");
   delay(10);
   memcpy(RcvBuffer, payload, size); // copy do destination (destinatio,source,size)
-
+  size_1=size;
   // Serial.printf("RssiValue=%d dBm, SnrValue=%d\n", rssi, snr);
   String str = (char *)RcvBuffer;
-  Serial.println("porownanie");
-  Serial.println(RcvBuffer[3] - 48);
-  Serial.println(adress[0] - 48);
-  if ((RcvBuffer[4] - 48) == (adress[0] - 48))
+  //Serial.println("porownanie");
+  //Serial.println(RcvBuffer[0] - 48);
+  //Serial.println(adress[0] - 48);
+  if ((RcvBuffer[0]) == adress[0])
   {
     for (int idx = 0; idx < size; idx++)
     {
-
       Serial.println(RcvBuffer[idx] - 48);
+      RxBuffer[idx]=RcvBuffer[idx]-48;
     }
-
-    Serial.println("");
     idx = 0;
     Radio.Rx(RX_TIMEOUT_VALUE);
+    
   }
   else
   {
     Serial.println("wrong node adress");
   }
+  RS();
+}
+
+void RS(void)
+{
+  RS485.beginTransmission();
+  pinMode(WB_IO2, OUTPUT);
+  digitalWrite(WB_IO2, HIGH);
+
+  int id=0;
+   for (id = 1; id < size_1;id++)
+    {
+       RS485.write(RcvBuffer[id]);
+       RS485.flush();
+    }
+    id= 0;
+  RS485.endTransmission();
+  delay(1000);
 }
 
 /**@brief Function to be executed on Radio Rx Timeout event
