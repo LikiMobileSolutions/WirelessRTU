@@ -1,0 +1,14 @@
+{
+    "files.associations": {
+        "system_error": "cpp",
+        "chrono": "cpp",
+        "mstd_memory": "cpp",
+        "*.tcc": "cpp",
+        "optional": "cpp",
+        "algorithm": "cpp",
+        "random": "cpp",
+        "istream": "cpp",
+        "numeric": "cpp",
+        "streambuf": "cpp"
+    }
+}
