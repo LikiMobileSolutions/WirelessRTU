@@ -3,7 +3,7 @@
 from time import sleep
 import minimalmodbus
 
-instrument = minimalmodbus.Instrument('/dev/ttyUSB1', 1)  # port name, slave address (in decimal)
+instrument = minimalmodbus.Instrument('COM7', 1)  # port name, slave address (in decimal)
 instrument.serial.baudrate = 9600
 
 while(True):
